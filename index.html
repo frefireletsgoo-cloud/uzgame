@@ -3,75 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Neon Builder Fix</title>
+    <title>Neon Builder V3</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; color: #0ff; font-family: sans-serif; }
-        #ui { position: absolute; top: 10px; width: 100%; text-align: center; z-index: 10; text-shadow: 0 0 10px #0ff; }
-        .controls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 20; }
-        .btn { padding: 12px 25px; background: rgba(0,0,0,0.7); border: 2px solid #f0f; color: #f0f; border-radius: 10px; font-weight: bold; cursor: pointer; box-shadow: 0 0 10px #f0f; }
-        #cam-view { position: absolute; bottom: 80px; right: 10px; width: 120px; height: 160px; border: 1px solid #0ff; z-index: 15; transform: scaleX(-1); background: #111; border-radius: 8px; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
+        #ui-text { position: absolute; top: 10px; width: 100%; text-align: center; color: #0ff; z-index: 100; font-size: 12px; }
+        .controls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 100; }
+        .btn { padding: 12px 20px; background: rgba(0,0,0,0.8); border: 2px solid #f0f; color: #f0f; border-radius: 10px; font-weight: bold; }
+        /* Kamera oynasi */
+        #cam-layer { position: absolute; bottom: 85px; right: 15px; width: 100px; height: 130px; border: 2px solid #0ff; border-radius: 8px; z-index: 50; transform: scaleX(-1); background: #111; }
     </style>
 </head>
 <body>
-    <div id="ui">NEON BUILDER V2 | HOLAT: <span id="st">KUTILMOQDA</span></div>
-    <video id="v-in" style="display:none;"></video>
-    <canvas id="cam-view"></canvas>
+    <div id="ui-text">TIZIM: <span id="info">YUKLANMOQDA...</span></div>
+    <video id="v-raw" style="display:none;" playsinline></video>
+    <canvas id="cam-layer"></canvas>
     
     <div class="controls">
         <button id="draw-btn" class="btn">CHIZISH: OFF</button>
-        <button id="clear-btn" class="btn" style="border-color:#0ff; color:#0ff; box-shadow:0 0 10px #0ff;">TOZALASH</button>
+        <button id="clear-btn" class="btn" style="border-color:#0ff; color:#0ff;">TOZALASH</button>
     </div>
 
     <script>
+        const info = document.getElementById('info');
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
-        camera.position.z = 12;
+        camera.position.z = 15;
 
-        const video = document.getElementById('v-in');
-        const canvas = document.getElementById('cam-view');
+        const video = document.getElementById('v-raw');
+        const canvas = document.getElementById('cam-layer');
         const ctx = canvas.getContext('2d');
-        const st = document.getElementById('st');
-        let isDrawing = false;
-        let lastPos = null;
+        let drawing = false;
+        let lastX, lastY;
 
         const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
         hands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.5 });
 
         hands.onResults((res) => {
-            canvas.width = 120; canvas.height = 160;
-            ctx.clearRect(0, 0, 120, 160);
-            ctx.drawImage(res.image, 0, 0, 120, 160);
+            info.innerText = "AKTIV (QO'L KUTILMOQDA)";
+            canvas.width = 100; canvas.height = 130;
+            ctx.drawImage(res.image, 0, 0, 100, 130);
             
             if (res.multiHandLandmarks && res.multiHandLandmarks[0]) {
-                st.innerText = "OK"; st.style.color = "#f0f";
-                const finger = res.multiHandLandmarks[0][8];
-                
-                if (isDrawing) {
-                    let nx = (finger.x - 0.5) * 20;
-                    let ny = (0.5 - finger.y) * 20;
-                    
-                    if (lastPos) {
-                        nx = lastPos.x * 0.85 + nx * 0.15;
-                        ny = lastPos.y * 0.85 + ny * 0.15;
-                    }
-
-                    const mesh = new THREE.Mesh(
-                        new THREE.BoxGeometry(0.3, 0.3, 0.3),
-                        new THREE.MeshBasicMaterial({ color: 0x00ffff })
-                    );
-                    mesh.position.set(nx, ny, -finger.z * 10);
+                info.innerText = "QO'L ANIQLANDI ✅";
+                const p = res.multiHandLandmarks[0][8]; // Barmoq uchi
+                if (drawing) {
+                    let nx = (p.x - 0.5) * 22;
+                    let ny = (0.5 - p.y) * 22;
+                    const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
+                    mesh.position.set(nx, ny, -p.z * 10);
                     scene.add(mesh);
-                    lastPos = {x: nx, y: ny};
                     if(scene.children.length > 300) scene.remove(scene.children[0]);
                 }
-            } else {
-                st.innerText = "?"; st.style.color = "#0ff";
             }
         });
 
@@ -79,12 +67,18 @@
             onFrame: async () => { await hands.send({image: video}); },
             width: 320, height: 240
         });
-        cam.start().catch(() => alert("Kameraga ruxsat bering!"));
+
+        cam.start().then(() => {
+            info.innerText = "KAMERA YOQILDI";
+        }).catch(err => {
+            info.innerText = "XATO: KAMERA RUXSATI YO'Q!";
+            console.error(err);
+        });
 
         document.getElementById('draw-btn').onclick = (e) => {
-            isDrawing = !isDrawing;
-            e.target.innerText = isDrawing ? "CHIZISH: ON" : "CHIZISH: OFF";
-            if(!isDrawing) lastPos = null;
+            drawing = !drawing;
+            e.target.innerText = drawing ? "CHIZISH: ON" : "CHIZISH: OFF";
+            e.target.style.boxShadow = drawing ? "0 0 15px #f0f" : "none";
         };
 
         document.getElementById('clear-btn').onclick = () => {
