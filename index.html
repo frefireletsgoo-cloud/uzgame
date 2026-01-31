@@ -3,38 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Neon 3D Fix</title>
-    
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+    <title>Neon Builder Fix</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
-        #status-bar { position: absolute; top: 10px; width: 100%; text-align: center; color: #0ff; z-index: 10; font-size: 14px; text-shadow: 0 0 10px #0ff; }
-        
-        /* Boshqaruv tugmalari */
-        .neon-controls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 20; }
-        .n-btn { padding: 12px 20px; background: rgba(0,0,0,0.8); border: 2px solid; border-radius: 10px; font-weight: bold; cursor: pointer; color: #fff; }
-        #draw-btn { border-color: #f0f; color: #f0f; box-shadow: 0 0 10px #f0f; }
-        #clear-btn { border-color: #f00; color: #f00; box-shadow: 0 0 10px #f00; }
-
-        /* Kamera oynasi */
-        #cam-layer { position: absolute; bottom: 20px; right: 10px; width: 100px; height: 130px; border: 2px solid #0ff; border-radius: 10px; z-index: 15; transform: scaleX(-1); background: #111; }
+        body { margin: 0; overflow: hidden; background: #000; color: #0ff; font-family: sans-serif; }
+        #ui { position: absolute; top: 10px; width: 100%; text-align: center; z-index: 10; text-shadow: 0 0 10px #0ff; }
+        .controls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 20; }
+        .btn { padding: 12px 25px; background: rgba(0,0,0,0.7); border: 2px solid #f0f; color: #f0f; border-radius: 10px; font-weight: bold; cursor: pointer; box-shadow: 0 0 10px #f0f; }
+        #cam-view { position: absolute; bottom: 80px; right: 10px; width: 120px; height: 160px; border: 1px solid #0ff; z-index: 15; transform: scaleX(-1); background: #111; border-radius: 8px; }
     </style>
 </head>
 <body>
-    <div id="status-bar">TIZIM: AKTIV | AVTO-TO'G'RILASH ON</div>
-    <video id="v-input" style="display:none;"></video>
-    <canvas id="cam-layer"></canvas>
+    <div id="ui">NEON BUILDER V2 | HOLAT: <span id="st">KUTILMOQDA</span></div>
+    <video id="v-in" style="display:none;"></video>
+    <canvas id="cam-view"></canvas>
     
-    <div class="neon-controls">
-        <button id="draw-btn" class="n-btn">CHIZISH: OFF</button>
-        <button id="clear-btn" class="n-btn">TOZALASH</button>
+    <div class="controls">
+        <button id="draw-btn" class="btn">CHIZISH: OFF</button>
+        <button id="clear-btn" class="btn" style="border-color:#0ff; color:#0ff; box-shadow:0 0 10px #0ff;">TOZALASH</button>
     </div>
 
     <script>
-        // 3D SAHNA
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
@@ -42,36 +33,32 @@
         document.body.appendChild(renderer.domElement);
         camera.position.z = 12;
 
-        const video = document.getElementById('v-input');
-        const canvas = document.getElementById('cam-layer');
+        const video = document.getElementById('v-in');
+        const canvas = document.getElementById('cam-view');
         const ctx = canvas.getContext('2d');
-        let drawing = false;
-        let lastPoint = null;
+        const st = document.getElementById('st');
+        let isDrawing = false;
+        let lastPos = null;
 
-        // QO'LNI ANIQLASH
         const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-        hands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.6 });
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.5 });
 
         hands.onResults((res) => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(res.image, 0, 0, canvas.width, canvas.height);
+            canvas.width = 120; canvas.height = 160;
+            ctx.clearRect(0, 0, 120, 160);
+            ctx.drawImage(res.image, 0, 0, 120, 160);
             
             if (res.multiHandLandmarks && res.multiHandLandmarks[0]) {
-                const pts = res.multiHandLandmarks[0];
+                st.innerText = "OK"; st.style.color = "#f0f";
+                const finger = res.multiHandLandmarks[0][8];
                 
-                // Skelet nuqtalarini chizish (Sodda usulda)
-                ctx.fillStyle = "#0ff";
-                pts.forEach(p => ctx.fillRect(p.x * canvas.width, p.y * canvas.height, 3, 3));
-
-                if (drawing) {
-                    const finger = pts[8]; // Ko'rsatkich barmoq
-                    let nx = (finger.x - 0.5) * 18;
-                    let ny = (0.5 - finger.y) * 18;
+                if (isDrawing) {
+                    let nx = (finger.x - 0.5) * 20;
+                    let ny = (0.5 - finger.y) * 20;
                     
-                    // Avto-to'g'rilash (Smooth)
-                    if (lastPoint) {
-                        nx = lastPoint.x * 0.8 + nx * 0.2;
-                        ny = lastPoint.y * 0.8 + ny * 0.2;
+                    if (lastPos) {
+                        nx = lastPos.x * 0.85 + nx * 0.15;
+                        ny = lastPos.y * 0.85 + ny * 0.15;
                     }
 
                     const mesh = new THREE.Mesh(
@@ -80,9 +67,11 @@
                     );
                     mesh.position.set(nx, ny, -finger.z * 10);
                     scene.add(mesh);
-                    lastPoint = {x: nx, y: ny};
+                    lastPos = {x: nx, y: ny};
                     if(scene.children.length > 300) scene.remove(scene.children[0]);
                 }
+            } else {
+                st.innerText = "?"; st.style.color = "#0ff";
             }
         });
 
@@ -90,14 +79,12 @@
             onFrame: async () => { await hands.send({image: video}); },
             width: 320, height: 240
         });
-        cam.start();
+        cam.start().catch(() => alert("Kameraga ruxsat bering!"));
 
-        // TUGMALAR
         document.getElementById('draw-btn').onclick = (e) => {
-            drawing = !drawing;
-            e.target.innerText = drawing ? "CHIZISH: ON" : "CHIZISH: OFF";
-            e.target.style.background = drawing ? "#f0f" : "rgba(0,0,0,0.8)";
-            if(!drawing) lastPoint = null;
+            isDrawing = !isDrawing;
+            e.target.innerText = isDrawing ? "CHIZISH: ON" : "CHIZISH: OFF";
+            if(!isDrawing) lastPos = null;
         };
 
         document.getElementById('clear-btn').onclick = () => {
