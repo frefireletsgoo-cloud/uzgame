@@ -3,21 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Neon Builder V3</title>
+    <title>Neon Uzb Fix</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
-        #ui-text { position: absolute; top: 10px; width: 100%; text-align: center; color: #0ff; z-index: 100; font-size: 12px; }
+        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; }
+        #status { position: absolute; top: 10px; width: 100%; text-align: center; color: #0ff; z-index: 100; font-size: 14px; }
         .controls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 100; }
-        .btn { padding: 12px 20px; background: rgba(0,0,0,0.8); border: 2px solid #f0f; color: #f0f; border-radius: 10px; font-weight: bold; }
-        /* Kamera oynasi */
-        #cam-layer { position: absolute; bottom: 85px; right: 15px; width: 100px; height: 130px; border: 2px solid #0ff; border-radius: 8px; z-index: 50; transform: scaleX(-1); background: #111; }
+        .btn { padding: 12px 25px; background: #222; border: 2px solid #f0f; color: #f0f; border-radius: 10px; font-weight: bold; }
+        #cam-layer { position: absolute; bottom: 80px; right: 10px; width: 100px; height: 130px; border: 2px solid #0ff; z-index: 50; transform: scaleX(-1); background: #111; }
     </style>
 </head>
 <body>
-    <div id="ui-text">TIZIM: <span id="info">YUKLANMOQDA...</span></div>
+    <div id="status">HOLAT: YUKLANMOQDA...</div>
     <video id="v-raw" style="display:none;" playsinline></video>
     <canvas id="cam-layer"></canvas>
     
@@ -27,38 +26,37 @@
     </div>
 
     <script>
-        const info = document.getElementById('info');
+        const status = document.getElementById('status');
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
-        camera.position.z = 15;
+        camera.position.z = 10;
 
         const video = document.getElementById('v-raw');
         const canvas = document.getElementById('cam-layer');
         const ctx = canvas.getContext('2d');
-        let drawing = false;
-        let lastX, lastY;
+        let isDrawing = false;
 
         const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
         hands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.5 });
 
         hands.onResults((res) => {
-            info.innerText = "AKTIV (QO'L KUTILMOQDA)";
+            status.innerText = "TIZIM TAYYOR ✅";
             canvas.width = 100; canvas.height = 130;
             ctx.drawImage(res.image, 0, 0, 100, 130);
             
             if (res.multiHandLandmarks && res.multiHandLandmarks[0]) {
-                info.innerText = "QO'L ANIQLANDI ✅";
-                const p = res.multiHandLandmarks[0][8]; // Barmoq uchi
-                if (drawing) {
-                    let nx = (p.x - 0.5) * 22;
-                    let ny = (0.5 - p.y) * 22;
-                    const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
-                    mesh.position.set(nx, ny, -p.z * 10);
+                const p = res.multiHandLandmarks[0][8]; 
+                if (isDrawing) {
+                    const mesh = new THREE.Mesh(
+                        new THREE.BoxGeometry(0.4, 0.4, 0.4),
+                        new THREE.MeshBasicMaterial({ color: 0x00ffff })
+                    );
+                    mesh.position.set((p.x - 0.5) * 15, (0.5 - p.y) * 15, 0);
                     scene.add(mesh);
-                    if(scene.children.length > 300) scene.remove(scene.children[0]);
+                    if(scene.children.length > 200) scene.remove(scene.children[0]);
                 }
             }
         });
@@ -67,18 +65,13 @@
             onFrame: async () => { await hands.send({image: video}); },
             width: 320, height: 240
         });
-
-        cam.start().then(() => {
-            info.innerText = "KAMERA YOQILDI";
-        }).catch(err => {
-            info.innerText = "XATO: KAMERA RUXSATI YO'Q!";
-            console.error(err);
-        });
+        cam.start().then(() => status.innerText = "KAMERA YOQILDI");
 
         document.getElementById('draw-btn').onclick = (e) => {
-            drawing = !drawing;
-            e.target.innerText = drawing ? "CHIZISH: ON" : "CHIZISH: OFF";
-            e.target.style.boxShadow = drawing ? "0 0 15px #f0f" : "none";
+            isDrawing = !isDrawing;
+            e.target.innerText = isDrawing ? "CHIZISH: ON" : "CHIZISH: OFF";
+            e.target.style.background = isDrawing ? "#f0f" : "#222";
+            e.target.style.color = isDrawing ? "#000" : "#f0f";
         };
 
         document.getElementById('clear-btn').onclick = () => {
