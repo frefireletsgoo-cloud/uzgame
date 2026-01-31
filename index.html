@@ -1,47 +1,37 @@
-<!DOCTYPE html>
-<html lang="uz">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Neon Uzb 3D</title>
+import telebot
+from telebot import types
+
+# Sizning bot tokeningiz
+TOKEN = '8268811667:AAF-oiooOpzoblaSR-hTIkchtwrDOhVXbu8'
+bot = telebot.TeleBot(TOKEN)
+
+# GitHub-dagi Neon 3D o'yin manzilingiz
+GAME_URL = "https://frefireletsgoo-cloud.github.io/uzgame/"
+
+@bot.message_handler(commands=['start'])
+def start(message):
+    # Neon uslubidagi interfeys uchun klaviatura
+    markup = types.InlineKeyboardMarkup()
     
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    # Mini App tugmasi
+    web_app = types.WebAppInfo(url=GAME_URL)
+    button = types.InlineKeyboardButton(
+        text="NEON BUILDER: BOSHLASH ⚡", 
+        web_app=web_app
+    )
+    markup.add(button)
+    
+    welcome_msg = (
+        "💠 **NEON 3D MODELLER BOT** 💠\n\n"
+        "Tizim tayyor. Qo'l harakatlari orqali 3D dunyoni quring!\n\n"
+        "🔹 **Qo'llanma:**\n"
+        "1. Pastdagi tugmani bosing.\n"
+        "2. Kamerani yoqing.\n"
+        "3. Ko'rsatkich barmog'ingiz bilan havoda chizing.\n"
+        "4. Tozalash tugmasi bilan sahnani yangilang."
+    )
+    
+    bot.send_message(message.chat.id, welcome_msg, parse_mode="Markdown", reply_markup=markup)
 
-    <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
-        
-        #ui-layer {
-            position: absolute; top: 10px; width: 100%; text-align: center;
-            color: #0ff; text-transform: uppercase; letter-spacing: 1px;
-            text-shadow: 0 0 10px #0ff; z-index: 10; font-size: 12px;
-        }
-
-        /* Pastki boshqaruv tugmalari */
-        .controls {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            display: flex; gap: 10px; z-index: 10; width: 90%; justify-content: center;
-        }
-
-        .btn {
-            padding: 10px; flex: 1; background: rgba(0,0,0,0.6);
-            border: 2px solid; border-radius: 8px; font-weight: bold; font-size: 12px;
-            cursor: pointer; transition: 0.3s;
-        }
-
-        #draw-btn { color: #f0f; border-color: #f0f; box-shadow: 0 0 10px #f0f; }
-        #clear-btn { color: #f00; border-color: #f00; box-shadow: 0 0 10px #f00; }
-        #shape-btn { color: #0ff; border-color: #0ff; box-shadow: 0 0 10px #0ff; }
-
-        /* Kamera (Skelet ko'rinishi uchun) */
-        #cam-preview {
-            position: absolute; bottom: 20px; right: 10px;
-            width: 120px; height: 160px; border: 2px solid #0ff;
-            border-radius: 10px; z-index: 11; transform: scaleX(-1);
-            background: #000;
-        }
-    </style>
-</head>
-<body>
-    <div id="
+print("Neon Bot ishlamoqda... Pydroid terminalini yopmang!")
+bot.polling(none_stop=True)
