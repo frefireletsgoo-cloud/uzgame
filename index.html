@@ -1,114 +1,132 @@
 <!DOCTYPE html>
-<html>
+<html lang="uz">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Neon 3D Modeller</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon 3D Builder</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <style>
-        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
         
-        /* Neon UI elementlari */
-        #info { 
-            position: absolute; top: 20px; left: 20px; z-index: 10;
-            color: #0ff; text-transform: uppercase; letter-spacing: 2px;
-            text-shadow: 0 0 10px #0ff, 0 0 20px #0ff;
-            background: rgba(0, 0, 0, 0.7); padding: 10px; border: 1px solid #0ff;
-            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        /* Neon UI Paneli */
+        #neon-header { 
+            position: absolute; top: 15px; left: 15px; z-index: 10;
+            color: #0ff; border: 1px solid #0ff; background: rgba(0, 255, 255, 0.1);
+            padding: 10px 20px; border-radius: 8px; text-transform: uppercase;
+            box-shadow: 0 0 15px #0ff; text-shadow: 0 0 5px #0ff;
         }
 
-        #camera-btn {
+        /* Boshqaruv tugmalari */
+        .controls {
             position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-            z-index: 10; padding: 15px 40px; background: none;
-            color: #f0f; border: 2px solid #f0f; font-weight: bold;
-            text-shadow: 0 0 10px #f0f; box-shadow: 0 0 20px #f0f;
-            cursor: pointer; transition: 0.3s;
+            display: flex; gap: 20px; z-index: 10;
         }
 
-        #camera-btn:hover { background: #f0f; color: #000; }
+        .neon-btn {
+            padding: 12px 30px; background: transparent; font-weight: bold;
+            border-radius: 50px; cursor: pointer; transition: 0.3s;
+        }
 
-        /* Kamera oynasini kichraytiramiz (resurs tejash uchun) */
-        #video-canvas { 
-            position: absolute; bottom: 10px; right: 10px; 
-            width: 150px; height: 110px; border: 1px solid #0ff; z-index: 5;
-            opacity: 0.7; border-radius: 10px;
+        #start-btn { color: #f0f; border: 2px solid #f0f; box-shadow: 0 0 15px #f0f; text-shadow: 0 0 5px #f0f; }
+        #clear-btn { color: #ff0000; border: 2px solid #ff0000; box-shadow: 0 0 15px #ff0000; text-shadow: 0 0 5px #ff0000; display: none; }
+
+        .neon-btn:active { transform: scale(0.9); }
+
+        /* Kichik kamera oynasi */
+        #video-view { 
+            position: absolute; top: 15px; right: 15px; 
+            width: 110px; height: 85px; border: 2px solid #0ff;
+            box-shadow: 0 0 15px #0ff; border-radius: 10px; z-index: 5;
+            transform: scaleX(-1);
         }
     </style>
 </head>
 <body>
-    <div id="info">TIZIM: TAYYOR...</div>
+    <div id="neon-header">Tizim: Aktiv | <span id="status">Kutilmoqda</span></div>
     <video id="video" style="display:none;"></video>
-    <canvas id="video-canvas"></canvas>
-    <button id="camera-btn">NEON REJIMNI YOQISH</button>
+    <canvas id="video-view"></canvas>
+    
+    <div class="controls">
+        <button id="start-btn" class="neon-btn">REJIMNI YOQISH</button>
+        <button id="clear-btn" class="neon-btn">TOZALASH</button>
+    </div>
 
     <script>
         // --- THREE.JS SOZLAMALARI ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true }); // Antialias o'chirildi (tezlik uchun)
+        const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
-
-        camera.position.z = 10;
+        camera.position.z = 12;
 
         // --- MEDIAPIPE SOZLAMALARI ---
         const video = document.getElementById('video');
-        const vCanvas = document.getElementById('video-canvas');
+        const vCanvas = document.getElementById('video-view');
         const vCtx = vCanvas.getContext('2d');
-        const info = document.getElementById('info');
+        const status = document.getElementById('status');
+        const clearBtn = document.getElementById('clear-btn');
 
         const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
         
-        // Optimallashtirilgan sozlamalar
         hands.setOptions({
             maxNumHands: 1,
-            modelComplexity: 0, // 0 - eng tezkor rejim
+            modelComplexity: 0, 
             minDetectionConfidence: 0.5,
             minTrackingConfidence: 0.5
         });
 
         hands.onResults((results) => {
-            vCtx.clearRect(0, 0, vCanvas.width, vCanvas.height);
             vCtx.drawImage(results.image, 0, 0, vCanvas.width, vCanvas.height);
 
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const points = results.multiHandLandmarks[0];
-                const indexTip = points[8]; // Ko'rsatkich barmoq
+                status.innerText = "Chizilmoqda";
+                status.style.color = "#f0f";
                 
-                info.innerText = "HOLAT: CHIZILMOQDA...";
-                drawNeonPoint(indexTip.x, indexTip.y, indexTip.z);
+                const finger = results.multiHandLandmarks[0][8]; 
+                createNeonBlock(finger.x, finger.y, finger.z);
             } else {
-                info.innerText = "HOLAT: QO'L KUTILMOQDA";
+                status.innerText = "Qo'l Kutilmoqda";
+                status.style.color = "#0ff";
             }
         });
 
-        function drawNeonPoint(x, y, z) {
-            // Koordinatalarni 3D ga o'tkazish
-            const posX = (x - 0.5) * 15;
-            const posY = (0.5 - y) * 15;
+        // --- NEON SHAKLLAR YARATISH ---
+        function createNeonBlock(x, y, z) {
+            const px = (x - 0.5) * 18;
+            const py = (0.5 - y) * 14;
 
-            // Neon sharchalar yaratish
-            const geo = new THREE.SphereGeometry(0.1, 4, 4); // Kam poligonli (tezlik uchun)
+            const geo = new THREE.BoxGeometry(0.3, 0.3, 0.3);
             const mat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
-            const dot = new THREE.Mesh(geo, mat);
+            const mesh = new THREE.Mesh(geo, mat);
             
-            // Neon effekti (Glow)
-            dot.position.set(posX, posY, -z * 5);
-            scene.add(dot);
+            mesh.position.set(px, py, -z * 8);
+            scene.add(mesh);
+
+            // Avtomatik xotirani tejash
+            if (scene.children.length > 300) scene.remove(scene.children[0]);
         }
 
         const cam = new Camera(video, {
             onFrame: async () => { await hands.send({image: video}); },
-            width: 320, height: 240 // Past aniqlik (protsessorni qiynamaslik uchun)
+            width: 320, height: 240
         });
 
-        document.getElementById('camera-btn').onclick = () => {
+        // Tugmalar logikasi
+        document.getElementById('start-btn').onclick = () => {
             cam.start();
-            document.getElementById('camera-btn').style.display = 'none';
+            document.getElementById('start-btn').style.display = 'none';
+            clearBtn.style.display = 'block';
+        };
+
+        clearBtn.onclick = () => {
+            while(scene.children.length > 0){ 
+                scene.remove(scene.children[0]); 
+            }
         };
 
         function animate() {
@@ -119,4 +137,3 @@
     </script>
 </body>
 </html>
-)
