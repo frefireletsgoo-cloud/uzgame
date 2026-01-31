@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Neon 3D Modeller</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; }
+        
+        /* Neon UI elementlari */
+        #info { 
+            position: absolute; top: 20px; left: 20px; z-index: 10;
+            color: #0ff; text-transform: uppercase; letter-spacing: 2px;
+            text-shadow: 0 0 10px #0ff, 0 0 20px #0ff;
+            background: rgba(0, 0, 0, 0.7); padding: 10px; border: 1px solid #0ff;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        }
+
+        #camera-btn {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            z-index: 10; padding: 15px 40px; background: none;
+            color: #f0f; border: 2px solid #f0f; font-weight: bold;
+            text-shadow: 0 0 10px #f0f; box-shadow: 0 0 20px #f0f;
+            cursor: pointer; transition: 0.3s;
+        }
+
+        #camera-btn:hover { background: #f0f; color: #000; }
+
+        /* Kamera oynasini kichraytiramiz (resurs tejash uchun) */
+        #video-canvas { 
+            position: absolute; bottom: 10px; right: 10px; 
+            width: 150px; height: 110px; border: 1px solid #0ff; z-index: 5;
+            opacity: 0.7; border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">TIZIM: TAYYOR...</div>
+    <video id="video" style="display:none;"></video>
+    <canvas id="video-canvas"></canvas>
+    <button id="camera-btn">NEON REJIMNI YOQISH</button>
+
+    <script>
+        // --- THREE.JS SOZLAMALARI ---
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true }); // Antialias o'chirildi (tezlik uchun)
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        camera.position.z = 10;
+
+        // --- MEDIAPIPE SOZLAMALARI ---
+        const video = document.getElementById('video');
+        const vCanvas = document.getElementById('video-canvas');
+        const vCtx = vCanvas.getContext('2d');
+        const info = document.getElementById('info');
+
+        const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+        
+        // Optimallashtirilgan sozlamalar
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 0, // 0 - eng tezkor rejim
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+
+        hands.onResults((results) => {
+            vCtx.clearRect(0, 0, vCanvas.width, vCanvas.height);
+            vCtx.drawImage(results.image, 0, 0, vCanvas.width, vCanvas.height);
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const points = results.multiHandLandmarks[0];
+                const indexTip = points[8]; // Ko'rsatkich barmoq
+                
+                info.innerText = "HOLAT: CHIZILMOQDA...";
+                drawNeonPoint(indexTip.x, indexTip.y, indexTip.z);
+            } else {
+                info.innerText = "HOLAT: QO'L KUTILMOQDA";
+            }
+        });
+
+        function drawNeonPoint(x, y, z) {
+            // Koordinatalarni 3D ga o'tkazish
+            const posX = (x - 0.5) * 15;
+            const posY = (0.5 - y) * 15;
+
+            // Neon sharchalar yaratish
+            const geo = new THREE.SphereGeometry(0.1, 4, 4); // Kam poligonli (tezlik uchun)
+            const mat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+            const dot = new THREE.Mesh(geo, mat);
+            
+            // Neon effekti (Glow)
+            dot.position.set(posX, posY, -z * 5);
+            scene.add(dot);
+        }
+
+        const cam = new Camera(video, {
+            onFrame: async () => { await hands.send({image: video}); },
+            width: 320, height: 240 // Past aniqlik (protsessorni qiynamaslik uchun)
+        });
+
+        document.getElementById('camera-btn').onclick = () => {
+            cam.start();
+            document.getElementById('camera-btn').style.display = 'none';
+        };
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
+)
